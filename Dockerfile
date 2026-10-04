@@ -1,3 +1,10 @@
+FROM node:22-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build
+
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
@@ -8,6 +15,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend ./backend
 COPY harness.yaml ./
+COPY --from=frontend /frontend/dist ./frontend/dist
 RUN uv sync --frozen --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH" \

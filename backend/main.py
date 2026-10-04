@@ -7,6 +7,7 @@ import threading
 import webbrowser
 
 import uvicorn
+from dotenv import find_dotenv, load_dotenv
 
 from .api.app import create_app
 from .config import load_settings
@@ -14,6 +15,8 @@ from .config import load_settings
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    # Variables already set in the shell win over .env.
+    load_dotenv(find_dotenv(usecwd=True))
     settings = load_settings()
     name, provider = settings.get_provider()
     url = f"http://{settings.server.host}:{settings.server.port}"

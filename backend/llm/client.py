@@ -78,7 +78,7 @@ class LLMClient:
         if _supports_schema(self.provider.model):
             kwargs["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": name, "schema": schema, "strict": False},
+                "json_schema": {"name": name, "schema": schema, "strict": True},
             }
         else:
             kwargs["response_format"] = {"type": "json_object"}

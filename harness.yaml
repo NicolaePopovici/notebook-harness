@@ -9,7 +9,7 @@ provider: gemini
 providers:
   gemini:
     # Free key from https://aistudio.google.com/apikey
-    model: gemini/gemini-2.5-flash
+    model: gemini/gemini-3.8-flash
     api_key_env: GEMINI_API_KEY
   ollama:
     model: ollama_chat/qwen2.5-coder:14b

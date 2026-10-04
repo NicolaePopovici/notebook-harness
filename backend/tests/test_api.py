@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from backend.api.app import create_app
 from backend.config import CacheConfig, ProviderConfig, ServerConfig, Settings
 
-from .conftest import FakeCompletion, draft
+from .conftest import FakeCompletion, audience_of, draft
 
 
 @pytest.fixture
@@ -22,7 +22,8 @@ def settings(tmp_path):
 
 @pytest.fixture
 def fake():
-    return FakeCompletion(draft(("Allocations are overwritten.", 5, 'x.write.mode("overwrite")')))
+    claim = ("Allocations are overwritten.", 5, 'x.write.mode("overwrite")')
+    return FakeCompletion(lambda kwargs: draft(claim, audience=audience_of(kwargs)))
 
 
 @pytest.fixture

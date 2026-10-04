@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Awaitable, Callable
 
 from ..llm.client import LLMClient
 from ..parsing.models import Notebook
 from ..validation.citations import CitationValidator, build_report, claim_status
 from . import prompts
-from .models import Audience, Claim, Document, DraftDocument, RepairResponse, Section
+from .models import Audience, Claim, Document, DraftDocument, DraftSection, RepairResponse, Section
 from .render import render_notebook
 
 Progress = Callable[[str], Awaitable[None]]
@@ -31,6 +32,16 @@ async def generate_document(
     await progress("Writing document")
     draft = await client.complete_json(system, user, output=DraftDocument)
 
+    required = prompts.required_sections(audience)
+    missing = _missing_sections(draft.sections, required)
+    if missing and client.generation.max_repair_attempts > 0:
+        await progress(f"Writing {len(missing)} missing section(s): {', '.join(missing)}")
+        extra = await client.complete_json(system, _missing_sections_prompt(audience, notebook, missing), output=DraftDocument)
+        wanted = {_heading_key(h) for h in missing}
+        draft.sections += [s for s in extra.sections if _heading_key(s.heading) in wanted and s.claims]
+        missing = _missing_sections(draft.sections, required)
+    draft.sections = _in_required_order(draft.sections, required)
+
     validator = CitationValidator(notebook)
     sections = validator.resolve_document(draft)
 
@@ -46,10 +57,41 @@ async def generate_document(
         audience=audience,
         title=draft.title,
         sections=sections,
-        validation=build_report(sections, attempts),
+        validation=build_report(sections, attempts).model_copy(update={"missing_sections": missing}),
         model=client.model,
         prompt_version=prompts.PROMPT_VERSION,
         notebook_sha256=notebook.sha256,
+    )
+
+
+def _heading_key(heading: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", heading.lower()).strip()
+
+
+def _missing_sections(sections: list[DraftSection], required: list[str]) -> list[str]:
+    present = {_heading_key(s.heading) for s in sections if s.claims}
+    return [h for h in required if _heading_key(h) not in present]
+
+
+def _in_required_order(sections: list[DraftSection], required: list[str]) -> list[DraftSection]:
+    """Required sections first, in prompt order (first one wins if repeated); any extra sections after."""
+    required_keys = [_heading_key(h) for h in required]
+    by_key: dict[str, DraftSection] = {}
+    extra = []
+    for section in sections:
+        key = _heading_key(section.heading)
+        if key not in required_keys:
+            extra.append(section)
+        elif section.claims and key not in by_key:
+            by_key[key] = section
+    return [by_key[k] for k in required_keys if k in by_key] + extra
+
+
+def _missing_sections_prompt(audience: Audience, notebook: Notebook, missing: list[str]) -> str:
+    headings = "\n".join(f'- "{h}"' for h in missing)
+    return (
+        f"{prompts.load(audience.value)}\n\n{prompts.load('missing_sections')}\n{headings}\n\n"
+        f"{render_notebook(notebook)}"
     )
 
 

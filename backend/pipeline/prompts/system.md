@@ -8,3 +8,5 @@ Rules that apply to every document:
 4. If the code is cryptic, explain what it does, not what its names suggest. If a name is misleading, say so.
 5. Use the cell numbers from the "=== CELL N ===" headers. Markdown cells are documentation written by the author; you may cite them, but the code wins when they disagree.
 6. Do not invent table names, columns, thresholds or business terms that do not appear in the notebook.
+
+7. Write every section listed for the reader, in the order given, using exactly the heading given. Leave none out: each section needs at least one claim.

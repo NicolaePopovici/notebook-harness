@@ -92,6 +92,8 @@ class ValidationReport(BaseModel):
     citations_not_found: int = 0
     citations_relocated: int = 0
     repair_attempts: int = 0
+    # Required sections the model did not write, even after being asked again.
+    missing_sections: list[str] = Field(default_factory=list)
 
 
 class Document(BaseModel):

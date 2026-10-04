@@ -16,7 +16,7 @@ _ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
 
 class ProviderConfig(BaseModel):
-    # Any LiteLLM model string, e.g. "gemini/gemini-2.5-flash" or "ollama_chat/qwen2.5-coder:14b".
+    # Any LiteLLM model string, e.g. "gemini/gemini-3.8-flash" or "ollama_chat/qwen2.5-coder:14b".
     model: str
     api_key_env: str | None = None
     api_base: str | None = None
@@ -63,7 +63,7 @@ class Settings(BaseModel):
     provider: str = "gemini"
     providers: dict[str, ProviderConfig] = Field(
         default_factory=lambda: {
-            "gemini": ProviderConfig(model="gemini/gemini-2.5-flash", api_key_env="GEMINI_API_KEY"),
+            "gemini": ProviderConfig(model="gemini/gemini-3.8-flash", api_key_env="GEMINI_API_KEY"),
         }
     )
     generation: GenerationConfig = Field(default_factory=GenerationConfig)

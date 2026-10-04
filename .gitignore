@@ -221,3 +221,7 @@ __marimo__/
 
 # Harness document cache
 .harness/
+
+# Frontend: dependencies are installed locally; the built app is committed so `uv run harness` needs no Node
+frontend/node_modules/
+!frontend/dist/
