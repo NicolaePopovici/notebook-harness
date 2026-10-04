@@ -26,6 +26,10 @@ class LLMError(RuntimeError):
     pass
 
 
+class ContextTooLargeError(LLMError):
+    pass
+
+
 class LLMClient:
     def __init__(
         self,
@@ -43,15 +47,32 @@ class LLMClient:
     def model(self) -> str:
         return self.provider.model
 
+    def check_fits(self, system: str, user: str, output: type[BaseModel]) -> None:
+        """Raise ContextTooLargeError if the prompt plus room for the reply exceeds the model's context window."""
+        self._check_fits(_messages(system, user, inline_schema(output)))
+
+    def _check_fits(self, messages: list[dict[str, str]]) -> None:
+        limit = self.provider.context_limit()
+        if limit is None:
+            return
+        max_tokens, source = limit
+        needed = litellm.token_counter(model=self.provider.model, messages=messages)
+        reserve = self.generation.reserved_output_tokens
+        if needed + reserve > max_tokens:
+            raise ContextTooLargeError(
+                f"The prompt is about {needed:,} tokens, plus {reserve:,} kept free for the reply, but "
+                f"{self.provider.model} accepts {max_tokens:,} ({source}). Use a model with a larger context "
+                f"window, or raise the limit in harness.yaml if this model supports more."
+            )
+
     async def complete_json(self, system: str, user: str, output: type[T]) -> T:
         """Ask for JSON matching `output`. Malformed replies are sent back to the model with the error."""
         schema = inline_schema(output)
-        messages: list[dict[str, str]] = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": f"{user}\n\nReply with a single JSON object matching this JSON schema:\n{json.dumps(schema)}"},
-        ]
+        messages = _messages(system, user, schema)
         last_error = ""
         for _ in range(self.generation.max_parse_retries + 1):
+            # Checked on every attempt: each retry adds the previous reply to the conversation.
+            self._check_fits(messages)
             content = await self._call(messages, output.__name__, schema)
             try:
                 return output.model_validate(parse_json(content))
@@ -85,6 +106,12 @@ class LLMClient:
 
         try:
             response = await self._completion(**kwargs)
+        except litellm.ContextWindowExceededError as exc:
+            # Our token count is an estimate; the provider has the final say.
+            raise ContextTooLargeError(
+                f"The prompt is too long for {self.provider.model}'s context window. Use a model with a larger "
+                f"context window. ({exc})"
+            ) from exc
         except litellm.AuthenticationError as exc:
             hint = f" Set {self.provider.api_key_env}." if self.provider.api_key_env else ""
             raise LLMError(f"Authentication failed for {self.provider_name}.{hint}") from exc
@@ -101,6 +128,13 @@ class LLMClient:
         if not content:
             raise LLMError(f"{self.provider_name} returned an empty reply.")
         return content
+
+
+def _messages(system: str, user: str, schema: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"{user}\n\nReply with a single JSON object matching this JSON schema:\n{json.dumps(schema)}"},
+    ]
 
 
 def _supports_schema(model: str) -> bool:

@@ -20,14 +20,18 @@ async def _no_progress(_: str) -> None:
     pass
 
 
+def build_prompt(notebook: Notebook, audience: Audience) -> tuple[str, str]:
+    """System and user prompt for the main request of one document."""
+    return prompts.load("system"), f"{prompts.load(audience.value)}\n\n{render_notebook(notebook)}"
+
+
 async def generate_document(
     notebook: Notebook,
     audience: Audience,
     client: LLMClient,
     progress: Progress = _no_progress,
 ) -> Document:
-    system = prompts.load("system")
-    user = f"{prompts.load(audience.value)}\n\n{render_notebook(notebook)}"
+    system, user = build_prompt(notebook, audience)
 
     await progress("Writing document")
     draft = await client.complete_json(system, user, output=DraftDocument)

@@ -22,9 +22,25 @@ class ProviderConfig(BaseModel):
     api_base: str | None = None
     # Extra keyword arguments passed straight to litellm.acompletion.
     extra: dict[str, Any] = Field(default_factory=dict)
+    # Context window in tokens. Needed for models LiteLLM doesn't know (local ones); for Ollama, num_ctx is used.
+    max_input_tokens: int | None = None
 
     def api_key(self) -> str | None:
         return os.environ.get(self.api_key_env) if self.api_key_env else None
+
+    def context_limit(self) -> tuple[int, str] | None:
+        """The model's context window and where that number came from, or None if unknown."""
+        if self.max_input_tokens:
+            return self.max_input_tokens, "max_input_tokens in harness.yaml"
+        if num_ctx := self.extra.get("num_ctx"):
+            return int(num_ctx), "num_ctx in harness.yaml"
+        try:
+            import litellm
+
+            limit = litellm.get_model_info(self.model).get("max_input_tokens")
+        except Exception:
+            return None
+        return (limit, "LiteLLM's model info") if limit else None
 
     def is_configured(self) -> bool:
         return self.api_key_env is None or bool(self.api_key())
@@ -37,6 +53,8 @@ class GenerationConfig(BaseModel):
     max_repair_attempts: int = 1
     # Re-prompts when the model returns malformed JSON.
     max_parse_retries: int = 2
+    # Tokens kept free for the reply when checking that a prompt fits the context window.
+    reserved_output_tokens: int = 8000
     # Documents generated at the same time (keep low for free-tier rate limits).
     max_concurrency: int = 3
 

@@ -6,9 +6,11 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from ..config import Settings
-from ..llm.client import CompletionFn, LLMClient
+from ..llm.client import CompletionFn, ContextTooLargeError, LLMClient
 from ..parsing.loader import NotebookLoadError, load_notebook
 from ..parsing.models import Notebook
+from ..pipeline.generate import build_prompt
+from ..pipeline.models import DraftDocument
 from ..pipeline.runs import Run, RunManager
 from .schemas import (
     CellCode,
@@ -121,6 +123,12 @@ async def start_run(notebook_id: str, body: StartRunRequest, request: Request) -
 
     completion_fn: CompletionFn | None = request.app.state.completion_fn
     client = LLMClient(name, provider, settings.generation, completion_fn)
+    # Fail before starting if the notebook can't fit, rather than three times in the background.
+    for audience in body.audiences:
+        try:
+            client.check_fits(*build_prompt(notebook, audience), output=DraftDocument)
+        except ContextTooLargeError as exc:
+            raise HTTPException(400, f"{notebook.name} is too large for {name}: {exc}") from exc
     run = _runs(request).start(notebook, list(dict.fromkeys(body.audiences)), client, force=body.force)
     return StartRunResponse(run_id=run.id)
 

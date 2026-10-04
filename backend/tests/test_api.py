@@ -114,3 +114,13 @@ def test_provider_checks(api, sample_path):
     assert "HARNESS_TEST_MISSING_KEY" in missing_key.json()["detail"]
     providers = {p["name"]: p for p in api.get("/api/providers").json()}
     assert providers["fake"]["default"] and not providers["needs_key"]["configured"]
+
+
+def test_run_rejected_when_notebook_too_large(settings, fake, sample_path):
+    settings.providers["tiny"] = ProviderConfig(model="openai/x", max_input_tokens=1000)
+    with TestClient(create_app(settings, completion_fn=fake)) as api:
+        nb = open_sample(api, sample_path)
+        response = api.post(f"/api/notebooks/{nb['id']}/runs", json={"provider": "tiny"})
+    assert response.status_code == 400
+    assert "sample_notebook.py is too large for tiny" in response.json()["detail"]
+    assert fake.calls == []

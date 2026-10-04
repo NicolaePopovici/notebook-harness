@@ -15,7 +15,7 @@ providers:
     model: ollama_chat/qwen2.5-coder:14b
     api_base: ${OLLAMA_API_BASE:-http://localhost:11434}
     extra:
-      num_ctx: 32768   # the whole notebook goes into one prompt
+      num_ctx: 32768   # the whole notebook goes into one prompt; also used as the context limit
   openai:
     model: openai/gpt-4o-mini
     api_key_env: OPENAI_API_KEY
@@ -25,12 +25,15 @@ providers:
   lmstudio:
     model: openai/local-model
     api_base: ${LMSTUDIO_API_BASE:-http://localhost:1234/v1}
+    # LiteLLM doesn't know local models' context size; set it so oversized notebooks are rejected up front.
+    max_input_tokens: 32768
 
 generation:
   temperature: 0.1
   timeout_s: 300
   max_repair_attempts: 1
   max_parse_retries: 2
+  reserved_output_tokens: 8000   # kept free for the reply when checking the context window
   max_concurrency: 3
 
 server:
