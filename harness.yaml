@@ -1,0 +1,47 @@
+# Notebook Documentation Harness configuration.
+# Every value can use ${VAR} or ${VAR:-default}. HARNESS_PROVIDER, HARNESS_MODEL, HARNESS_HOST,
+# HARNESS_PORT, HARNESS_OPEN_BROWSER and HARNESS_CACHE_DIR override the matching settings.
+
+# Provider used when a run does not name one. Switch with HARNESS_PROVIDER=ollama.
+provider: gemini
+
+# `model` is any LiteLLM model string: https://docs.litellm.ai/docs/providers
+providers:
+  gemini:
+    # Free key from https://aistudio.google.com/apikey
+    model: gemini/gemini-2.5-flash
+    api_key_env: GEMINI_API_KEY
+  ollama:
+    model: ollama_chat/qwen2.5-coder:14b
+    api_base: ${OLLAMA_API_BASE:-http://localhost:11434}
+    extra:
+      num_ctx: 32768   # the whole notebook goes into one prompt
+  openai:
+    model: openai/gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+  anthropic:
+    model: anthropic/claude-sonnet-5-5
+    api_key_env: ANTHROPIC_API_KEY
+  lmstudio:
+    model: openai/local-model
+    api_base: ${LMSTUDIO_API_BASE:-http://localhost:1234/v1}
+
+generation:
+  temperature: 0.1
+  timeout_s: 300
+  max_repair_attempts: 1
+  max_parse_retries: 2
+  max_concurrency: 3
+
+server:
+  host: 127.0.0.1
+  port: 8000
+  open_browser: true
+  static_dir: frontend/dist
+
+cache:
+  enabled: true
+  dir: .harness/cache
+
+limits:
+  max_notebook_bytes: 2000000

@@ -1,0 +1,23 @@
+services:
+  harness:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      HARNESS_PROVIDER: ${HARNESS_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Reach Ollama / LM Studio running on the host machine.
+      OLLAMA_API_BASE: http://host.docker.internal:11434
+      LMSTUDIO_API_BASE: http://host.docker.internal:1234/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Mount the home directory read-only at the same path, so paths typed in the app work unchanged.
+      - ${HOME}:${HOME}:ro
+      - ./harness.yaml:/app/harness.yaml:ro
+      - harness-cache:/data/cache
+
+volumes:
+  harness-cache:
